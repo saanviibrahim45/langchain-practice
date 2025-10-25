@@ -5,6 +5,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from dotenv import load_dotenv
 import os
 from typing import Dict, Any
+import yfinance as yf
 
 load_dotenv()
 
@@ -21,6 +22,23 @@ def calculator_tool(expr: str) -> str:
     except Exception as e:
         return f"Error evaluating expression: {e}"
 
+def stock_close_tool (query:str) -> str:
+    try:
+        ticker_input = (query).strip().upper()
+        allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-^ "
+        if not ticker_input or any(c not in allowed for c in query):
+            return "Error: expression contains invalid characters"
+        ticker = yf.Ticker(ticker_input)
+        price = None
+        try:
+            price = ticker.info['currentPrice']
+            print("debug: ",price)
+            return f"{ticker} last price (approx): ${price:,.2f}"
+        except Exception:
+            pass
+    except Exception as e:
+        return f"Error fetching stock price: {e}"
+
 # ---- Initialize LLM ----
 model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
@@ -32,6 +50,10 @@ def tool_node(state: MessagesState) -> Dict[str, Any]:
     if isinstance(last_msg, HumanMessage) and user_text.lower().startswith("calc:"):
         expr = user_text.split(":", 1)[1].strip()
         tool_out = calculator_tool(expr)
+        return {"messages": [SystemMessage(content=f"Tool output: {tool_out}")]}
+    elif isinstance(last_msg, HumanMessage) and user_text.lower().startswith("stock:"):
+        ticker = user_text.split(":", 1)[1].strip()
+        tool_out = stock_close_tool(ticker)
         return {"messages": [SystemMessage(content=f"Tool output: {tool_out}")]}
     else:
         return {"messages": [SystemMessage(content="No tool used.")]}

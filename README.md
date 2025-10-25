@@ -1,5 +1,12 @@
 # LangChain Onboarding Project
 
+
+## My Tool
+
+The stock_close_tool retrieves the most recent stock price for a given ticker symbol using the yfinance API.
+When a user enters a command like stock: AAPL, the tool queries Yahoo Finance for the latest available price, returning either a near real-time quote or the most recent daily close.
+This computed result is passed to the LLM, which then formats and delivers the response naturally to the user.
+
 ## Purpose
 
 This repository is for onboarding SWE interns to **LangChain** by building a simple AI agent.
