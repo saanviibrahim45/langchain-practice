@@ -1,3 +1,9 @@
+# NEW TOOL
+## Stock lookup
+If the user calls lookup: {stock_ticker}, the chatbot will use the stock_lookup() tool to determine the current price of that ticker. Unfortunately, I forgot to get datastream access, so when I test it myself I get a message that says my credentials are invalid. Rest of the function works, though!
+
+
+# Leaving this untouched in case you want it to still be there:
 # LangChain Onboarding Project
 
 ## Purpose

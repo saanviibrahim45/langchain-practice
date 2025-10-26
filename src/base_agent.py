@@ -5,19 +5,36 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from dotenv import load_dotenv
 import os
 from typing import Dict, Any
+import refinitiv.dataplatform as rdp
+
 
 load_dotenv()
 
 # ---- Simple tool function ----
-def calculator_tool(expr: str) -> str:
+def stock_lookup(stock: str) -> str:
     try:
-        allowed = "0123456789+-*/(). "
-        if any(c not in allowed for c in expr):
-            return "Error: expression contains invalid characters."
-        result = eval(expr)
-        return f"Result: {result}"
+        # Open a data session
+        # Initialize the session
+        key = input("REFINITIV_API_KEY")
+        symbol = f"{stock.upper()}.N"
+        session = rdp.open_platform_session(
+            app_key=key
+        )
+        session.open()
+        response = rdp.get_data(
+            universe=[symbol],
+            fields=["TRDPRC_1"],  # Last traded price
+            session=session
+        )
+        if response is None or response.data.empty:
+            return f"No data found for symbol: {symbol}"
+
+        price = response.data["TRDPRC_1"].iloc[0]
+        session.close()
+
+        return price
     except Exception as e:
-        return f"Error evaluating expression: {e}"
+        return f"Error looking up stock: {e}"
 
 # ---- Initialize LLM ----
 model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
@@ -27,9 +44,9 @@ def tool_node(state: MessagesState) -> Dict[str, Any]:
     last_msg = state["messages"][-1]
     # use attribute access since it's a HumanMessage object
     user_text = getattr(last_msg, "content", "")
-    if isinstance(last_msg, HumanMessage) and user_text.lower().startswith("calc:"):
+    if isinstance(last_msg, HumanMessage) and user_text.lower().startswith("lookup:"):
         expr = user_text.split(":", 1)[1].strip()
-        tool_out = calculator_tool(expr)
+        tool_out = stock_lookup(expr)
         return {"messages": [SystemMessage(content=f"Tool output: {tool_out}")]}
     else:
         return {"messages": [SystemMessage(content="No tool used.")]}
@@ -61,7 +78,7 @@ graph = graph.compile()
 # ---- Interactive loop ----
 if __name__ == "__main__":
     print("LangGraph base agent ready. Type 'exit' to quit.")
-    print("Use 'calc: 2+2' to try the calculator tool. Anything else will be handled by the LLM.\n")
+
 
     conversation = []  # keep all messages here
 
