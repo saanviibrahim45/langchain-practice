@@ -32,7 +32,7 @@ def stock_close_tool (query:str) -> str:
         price = None
         try:
             price = ticker.info['currentPrice']
-            print("debug: ",price)
+            # print("debug: ",price)
             return f"{ticker} last price (approx): ${price:,.2f}"
         except Exception:
             pass
@@ -85,7 +85,9 @@ graph = graph.compile()
 # ---- Interactive loop ----
 if __name__ == "__main__":
     print("LangGraph base agent ready. Type 'exit' to quit.")
-    print("Use 'calc: 2+2' to try the calculator tool. Anything else will be handled by the LLM.\n")
+    print("Use 'calc: 2+2' to try the calculator tool.")
+    print("Use 'stock: TICKER' to try the stock tool. Anything else will be handled by the LLM.\n")
+
 
     conversation = []  # keep all messages here
 
