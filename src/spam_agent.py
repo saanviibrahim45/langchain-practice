@@ -3,33 +3,12 @@ from langgraph.graph import StateGraph, MessagesState, START, END
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from dotenv import load_dotenv
+import sys
 import os
 from typing import Dict, Any
-import nltk, string, ssl
-from nltk.corpus import words # import gives access to english dictionary words 
+from loader_subagent import LoaderSubAgent
 
 load_dotenv()
-
-# SSL verification temporarily, o/w cannot load dictionary (safe for local testing but not recommended for production)
-ssl._create_default_https_context = ssl._create_unverified_context 
-nltk.download('words')
-# load word list
-english_words = set(words.words()) 
-
-# Tool function: Calculate fraction of sentence comprised of mispelled (non-existent) words 
-def spam_word_count_tool(sentence : str) -> str:
-    wrong_count = 0
-    # split sentence into array of words by spacing
-    word_arr = sentence.split(" ")
-    if len(word_arr) == 0:
-        return f"Empty sentence"
-    else:
-        for w in word_arr:
-            # remove punctuation
-            w = w.strip(string.punctuation)
-            if w.lower() not in english_words:
-                wrong_count += 1
-        return f"Fraction of sentence mispelled: {wrong_count / len(word_arr)}"
 
 # initialize LLM
 model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
@@ -65,27 +44,40 @@ def llm_node(state: MessagesState) -> Dict[str, Any]:
 
 # Graph setup
 graph = StateGraph(MessagesState)
-graph.add_node("tool_node", tool_node)
-graph.add_node("llm_node", llm_node)
-graph.add_edge(START, "tool_node")
-graph.add_edge("tool_node", "llm_node")
-graph.add_edge("llm_node", END)
-graph = graph.compile()
 
+graph.add_node("loader_subagent", loader_subagent)
+graph.add_node("extractor_subagent", extractor_subagent)
+graph.add_node("classifier_subagent", classifier_subagent)
+
+graph.add_edge(START, "loader_subagent")
+graph.add_edge("loader_subagent", "extractor_subagent")
+graph.add_edge("extractor_subagent", "classifier_subagent")
+graph.add_edge("classifier_subagent", END)
+
+graph = graph.compile()
 
 # Iteractive loop
 if __name__ == "__main__":
     print("LangGraph base agent ready. Type 'exit' to quit.")
-    print("Use 'check spam: <your sentence of choice>' to try the spam checking tool. Anything else will be handled by the LLM.\n")
+    print("Use 'check spam: <your file path>' to try the spam function. Anything else will be handled by the LLM.\n")
 
     conversation = []  # keep all messages here
 
     while True:
-        user_input = input("You: ").strip()
-        if user_input.lower() in ("exit", "quit"):
-            break
-
-        conversation.append(HumanMessage(content = user_input)) # store user input
+        while True:
+            #user inputs a file (email)
+            user_input = input("You: ").strip()
+            file_path = input("Path to your email file: ")
+            if user_input.lower() in ("exit", "quit"):
+                sys.exit(0)
+            try:
+                #open file for reading
+                with open(file_path, 'r') as f:
+                    conversation.append(HumanMessage(content = file_path))
+                    print("File path: ", file_path)
+                    break
+            except FileNotFoundError:
+                print("Error: File not found. Please try again.")
 
         # pass full message history into the graph
         result = graph.invoke({"messages": conversation})
