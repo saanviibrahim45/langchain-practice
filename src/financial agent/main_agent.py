@@ -18,6 +18,7 @@ model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 class GlobalState:
     def __init__(self):
         self.ticker = ""
+        self.tools_called = []
         self.raw_api_data = ""
         self.status = "idle"
         self.final_response = ""
