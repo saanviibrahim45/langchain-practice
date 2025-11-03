@@ -32,9 +32,15 @@ def query_agent(state):
         [f"{m.type}: {getattr(m, 'content', '')}" for m in msgs[-1:]]
     )
 
-    prompt = f"""You are a financial assistant. Identify the financial APIs and tool calls 
-    to summarize the stock performance of {ticker}. 
-    User context: {context}"""
+    prompt = f"""You are a financial assistant. You can only use the following APIs/tools: 
+    - Alpha Vantage
+    - Yahoo Finance
+
+    Your goal is to identify either/both of these tools are required to summarize the stock performance of {ticker}.
+
+    User context: {context}
+
+    Output a concise list of tools to call."""
     resp = model.invoke([HumanMessage(content=prompt)])
     try:
         text = resp.content
@@ -45,7 +51,7 @@ def query_agent(state):
     tools_to_call = parse_tools(text)
 
     # update global state
-    state["global_state"].tools_called.extend(tools_to_call)
+    state["global_state"].tools_to_call.extend(tools_to_call)
 
     # append new msg to convo
     ai_msg = AIMessage(content=text)

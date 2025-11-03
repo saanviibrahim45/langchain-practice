@@ -12,13 +12,14 @@ from src.financial_agent.summarizer_agent import summarizer_agent
 load_dotenv()
 
 # ---- Initialize LLM ----
+# ChatOpenAI automatically reads OPENAI_API_KEY from os.environ
 model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
 # define global state
 class GlobalState:
     def __init__(self):
         self.ticker = ""
-        self.tools_called = []
+        self.tools_to_call = []
         self.raw_api_data = ""
         self.status = "idle"
         self.final_response = ""
