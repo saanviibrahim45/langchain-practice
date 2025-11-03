@@ -14,7 +14,10 @@ def read_file_node(inputs):
     file_path = inputs.get("file_path")
     with open(file_path, 'rb') as f:
         msg = BytesParser(policy=policy.default).parse(f)
-    return {"msg": msg}
+
+    msg_for_conv = SystemMessage(content=f"Loaded email file: {file_path}")
+
+    return {"msg": msg, "loader_msg": msg_for_conv}
 
 def extract_text_html_node(inputs):
     """
@@ -38,7 +41,9 @@ def extract_text_html_node(inputs):
             body_text = msg.get_content()
         elif content_type == "text/html":
             html_body = msg.get_content()
-    return {"body_text": body_text, "html_body": html_body}
+
+    msg_for_conv = SystemMessage(content="Extracted plain text and HTML from email.") 
+    return {"body_text": body_text, "html_body": html_body, "text_html_message": msg_for_conv}
 
 
 def extract_links_node(inputs):
@@ -58,8 +63,9 @@ def extract_links_node(inputs):
         "html_body": html_body.strip(),
         "links": links
     }
-    return {"email_dict": email_dict}
-
+    
+    msg_for_conv = SystemMessage(content=f"Extracted links and structured email components: {email_dict}") 
+    return {"email_dict": email_dict, "links_message": msg_for_conv}
 
 #build subgraph
 loader_subgraph = StateGraph(MessagesState)
