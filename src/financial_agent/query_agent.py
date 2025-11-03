@@ -2,6 +2,11 @@ from langgraph.graph import StateGraph, MessagesState, START, END
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from typing import Dict, Any
+from dotenv import load_dotenv
+import re
+import time
+
+load_dotenv()
 
 # ---- Initialize LLM ----
 model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
@@ -10,16 +15,20 @@ model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 # helper function to extract tools identified by LLM
 def parse_tools(text: str) -> list[str]:
     """
-    Extracts a list of tool names from LLM output text.
-    Example input: "Identified tools for ticker AAPL: AlphaVantageAPI, YahooFinanceAPI"
-    Returns: ["AlphaVantageAPI", "YahooFinanceAPI"]
+    Extracts tool names by searching for 'Alpha Vantage' and 'Yahoo Finance' in the text.
     """
-    match = re.search(r":\s*(.+)$", text)
-    if match:
-        tools_str = match.group(1)
-        tools = [t.strip() for t in tools_str.split(",")]
-        return tools
-    return []
+    tools = []
+    
+    # Search for Alpha Vantage (case-insensitive)
+    if re.search(r"alpha\s*vantage", text, re.IGNORECASE):
+        tools.append("Alpha Vantage")
+    
+    # Search for Yahoo Finance (case-insensitive)
+    if re.search(r"yahoo\s*finance", text, re.IGNORECASE):
+        tools.append("Yahoo Finance")
+    
+    return tools
+
 
 # Local state passed in: messages, global state
 def query_agent(state):
@@ -40,22 +49,26 @@ def query_agent(state):
 
     User context: {context}
 
-    Output a concise list of tools to call."""
+    Respond ONLY with the tool names separated by commas, nothing else.
+    Example response: "Alpha Vantage, Yahoo Finance" 
+    """
     resp = model.invoke([HumanMessage(content=prompt)])
     try:
         text = resp.content
+        print(f"DEBUG: LLM response: {text}")
     except Exception:
         text = str(resp)
 
     # parse tools from LLM output
     tools_to_call = parse_tools(text)
 
+    print(f"DEBUG: Parsed tools: {tools_to_call}")
+
     # update global state
     state["global_state"].tools_to_call.extend(tools_to_call)
 
     # append new msg to convo
     ai_msg = AIMessage(content=text)
-    state["messages"].append(ai_msg)
 
     state["global_state"].status = "planned"
 

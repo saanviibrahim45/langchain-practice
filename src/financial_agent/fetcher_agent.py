@@ -6,6 +6,8 @@ import os
 import requests # Python library for making HTTP requests
 import yfinance as yf
 from dotenv import load_dotenv
+import re
+import time
 
 load_dotenv()
 
@@ -53,7 +55,7 @@ def call_tool(tool_name: str, ticker: str):
     normalized = tool_name.lower().replace(" ", "")  # remove spaces, lowercase
     if normalized == "alphavantage":
         return call_alpha_vantage(ticker)
-    elif normalized == "yfinance":
+    elif normalized == "yahoofinance":
         return call_yfinance(ticker)
     else:
         raise ValueError(f"Unknown tool: {tool_name}")
@@ -62,10 +64,12 @@ def call_tool(tool_name: str, ticker: str):
 # Local state passed in: messages, global state
 def fetcher_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     ticker = getattr(state["global_state"], "ticker", None)
-    tools_to_call = getattr(state["global_state"], "tools_called", [])
+    tools_to_call = getattr(state["global_state"], "tools_to_call", [])
 
-    merged_data = {}
+    tool_results = {}
     successful_tools = []
+
+    print(f"DEBUG: Fetching data for {ticker} using tools: {tools_to_call}")
 
     for tool in tools_to_call:
         retries = 3
@@ -73,6 +77,8 @@ def fetcher_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         for attempt in range(1, retries + 1):
             try:
                 result = call_tool(tool, ticker)
+                print(f"DEBUG: {tool} returned: {result}")
+                tool_results[tool] = result
                 success = True
                 successful_tools.append(tool)
                 break
@@ -83,24 +89,19 @@ def fetcher_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             print(f"Persistent failure calling {tool}")
             continue
 
-        # Merge result
-        for key, items in result.items():
-            if key not in merged_data:
-                merged_data[key] = []
-            merged_data[key].extend(items)
+        print(f"DEBUG: Tool results: {tool_results}")
 
     # Update global state
-    state["global_state"].raw_api_data = merged_data
+    state["global_state"].raw_api_data = tool_results
     state["global_state"].status = "fetched"
 
     # Optional: append summary message
     ai_msg = AIMessage(content=f"Fetched and normalized data from tools: {', '.join(successful_tools)}")
-    state["messages"].append(ai_msg)
 
     # Return JSON envelope
     return {
         "status": "success" if successful_tools else "partial_failure",
-        "data": {"raw_api_data": merged_data},
+        "data": {"raw_api_data": tool_results},
         "metadata": {
             "api_sources": successful_tools,
             "task_id": "fetch_001", #not the best to hardcode
